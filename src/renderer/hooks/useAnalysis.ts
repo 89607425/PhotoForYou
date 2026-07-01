@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import * as Comlink from 'comlink';
-import type { PhotoEntry, AnalysisResult, ScoredPhoto, BatchScores } from '../types';
+import type { PhotoEntry, AnalysisResult, ScoredPhoto, BatchScores, FaceResult } from '../types';
 import type { WorkerAPI } from '../../workers/analysis.worker';
 
 export interface UseAnalysisReturn {
@@ -25,10 +25,26 @@ export function useAnalysis(): UseAnalysisReturn {
 
     setIsAnalyzing(true);
     setProgress(0);
-    setProgressText('正在认真看每一张……');
+    setProgressText('正在检测人脸……');
 
     try {
-      // Create worker pool
+      // Phase 1: Batch face detection in main process
+      const filePaths = photos.map((p) => p.filePath);
+      const faceResult = await window.electronAPI.detectFaces(filePaths);
+
+      const faceDataMap = new Map<string, FaceResult>();
+      if (faceResult.success && faceResult.results) {
+        faceResult.results.forEach((r, i) => {
+          if (r.faceDetected) {
+            faceDataMap.set(filePaths[i], r);
+          }
+        });
+      }
+
+      setProgress(10);
+      setProgressText('正在认真看每一张……');
+
+      // Phase 2: Create worker pool for Laplacian + brightness analysis
       const workers: Worker[] = [];
       for (let i = 0; i < WORKER_COUNT; i++) {
         const worker = new Worker(
@@ -72,6 +88,7 @@ export function useAnalysis(): UseAnalysisReturn {
               mediumPath,
               thumbPath: photo.thumbPath,
               index: currentIndex,
+              faceData: faceDataMap.get(photo.filePath),
             });
 
             // Clean up blob URL

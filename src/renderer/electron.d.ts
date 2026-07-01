@@ -24,6 +24,20 @@ interface ElectronAPI {
     error?: string;
   }>;
   openFolderInShell: (folderPath: string) => Promise<void>;
+  detectFaces: (filePaths: string[]) => Promise<{
+    success: boolean;
+    results?: {
+      faceDetected: boolean;
+      ear?: number;
+      mar?: number;
+      roll?: number;
+      faceBbox?: { x: number; y: number; w: number; h: number };
+      faceRatio?: number;
+      marginRatio?: number;
+      smileScore?: number;
+    }[];
+    error?: string;
+  }>;
 }
 
 declare global {

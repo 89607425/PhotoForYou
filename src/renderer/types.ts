@@ -1,8 +1,20 @@
+export interface FaceResult {
+  faceDetected: boolean;
+  ear?: number;
+  mar?: number;
+  roll?: number;
+  faceBbox?: { x: number; y: number; w: number; h: number };
+  faceRatio?: number;
+  marginRatio?: number;
+  smileScore?: number;
+}
+
 export interface PhotoEntry {
   filePath: string;
   thumbPath: string;
   name: string;
   hash?: string;
+  faceData?: FaceResult;
 }
 
 export interface AnalysisResult {
@@ -47,6 +59,7 @@ export interface WorkerAnalysisRequest {
   mediumPath: string;
   thumbPath: string;
   index: number;
+  faceData?: FaceResult;
 }
 
 export interface WorkerAnalysisResponse {

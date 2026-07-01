@@ -20,6 +20,6 @@
       "@workers/*": ["src/workers/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/workers/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/main"]
 }

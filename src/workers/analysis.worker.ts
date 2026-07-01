@@ -25,18 +25,16 @@ const workerAPI = {
     // Compute brightness mean in HSV space
     const brightnessMean = computeBrightnessMean(pixels, width, height);
 
-    // Face detection: MediaPipe FaceMesh integration is pending.
-    // When integrated, it will provide facial landmarks for computing
-    // EAR, MAR, roll, face ratio, margin ratio, and smile score.
-    // For now, face detection is stubbed out to allow end-to-end app flow.
-    const faceDetected = false;
-    const ear: number | undefined = undefined;
-    const mar: number | undefined = undefined;
-    const roll: number | undefined = undefined;
-    const faceBbox: { x: number; y: number; w: number; h: number } | undefined = undefined;
-    const faceRatio: number | undefined = undefined;
-    const marginRatio: number | undefined = undefined;
-    const smileScore: number | undefined = undefined;
+    // Face detection results from main process (pre-computed)
+    const faceData = request.faceData;
+    const faceDetected = faceData?.faceDetected ?? false;
+    const ear = faceData?.ear;
+    const mar = faceData?.mar;
+    const roll = faceData?.roll;
+    const faceBbox = faceData?.faceBbox;
+    const faceRatio = faceData?.faceRatio;
+    const marginRatio = faceData?.marginRatio;
+    const smileScore = faceData?.smileScore;
 
     // Rejection logic
     const rejectionReasons: string[] = [];

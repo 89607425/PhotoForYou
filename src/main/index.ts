@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
 import imghash from 'imghash';
+import { initFaceDetection, detectFacesBatch } from './faceDetection';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -36,6 +37,7 @@ app.whenReady().then(() => {
     const filePath = decodeURIComponent(request.url.replace('local-file://', ''));
     return net.fetch('file://' + filePath);
   });
+  initFaceDetection().catch((err) => console.error('Face detection init failed:', err));
   createWindow();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
@@ -173,8 +175,17 @@ ipcMain.handle('shell:openFolder', async (_event, folderPath: string) => {
 ipcMain.handle('photos:getExifDate', async (_event, filePath: string) => {
   try {
     const meta = await sharp(filePath).metadata();
-    return { success: true, date: meta.exif ? null : null }; // simplified for now
+    return { success: true, date: meta.exif ? null : null };
   } catch {
     return { success: true, date: null };
+  }
+});
+
+ipcMain.handle('photos:detectFaces', async (_event, filePaths: string[]) => {
+  try {
+    const results = await detectFacesBatch(filePaths);
+    return { success: true, results };
+  } catch (err: any) {
+    return { success: false, error: err.message };
   }
 });

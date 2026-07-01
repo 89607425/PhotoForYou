@@ -36,6 +36,21 @@ const api = {
       error?: string;
     }>,
   openFolderInShell: (folderPath: string) => ipcRenderer.invoke('shell:openFolder', folderPath),
+  detectFaces: (filePaths: string[]) =>
+    ipcRenderer.invoke('photos:detectFaces', filePaths) as Promise<{
+      success: boolean;
+      results?: {
+        faceDetected: boolean;
+        ear?: number;
+        mar?: number;
+        roll?: number;
+        faceBbox?: { x: number; y: number; w: number; h: number };
+        faceRatio?: number;
+        marginRatio?: number;
+        smileScore?: number;
+      }[];
+      error?: string;
+    }>,
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);
