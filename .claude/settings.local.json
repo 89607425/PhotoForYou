@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init -y)",
+      "Bash(npm view imghash versions --json)",
+      "Bash(npm install)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(echo:*)",
+      "Bash(npm install imghash@1.1.4 --save)",
+      "Bash(npx vite build)",
+      "Bash(npx tsc -p src/main/tsconfig.json)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
