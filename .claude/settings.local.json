@@ -29,7 +29,16 @@
       "Bash(npx @electron/rebuild -m /Users/houjunyi/Downloads/PhotoForYou)",
       "Bash(npm run lint)",
       "Bash(npm install:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(test:*)",
+      "Bash(npm uninstall @electron/rebuild electron electron-builder wait-on)",
+      "Bash(npx tsc -p src/server/tsconfig.json --noEmit)",
+      "Bash(npx tsc -p src/server/tsconfig.json)",
+      "Bash(lsof -ti :5173)",
+      "Bash(lsof:*)",
+      "Bash(npm view @tensorflow/tfjs-node versions --json)",
+      "Bash(node -e \"const util = require(''util''); console.log(typeof util.isNullOrUndefined)\")",
+      "Bash(git add README.md)"
     ],
     "deny": [],
     "ask": []

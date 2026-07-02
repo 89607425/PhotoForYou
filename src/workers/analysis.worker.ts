@@ -3,9 +3,9 @@ import type { AnalysisResult, WorkerAnalysisRequest } from '../renderer/types';
 
 const workerAPI = {
   async analyze(request: WorkerAnalysisRequest): Promise<AnalysisResult> {
-    const { filePath, mediumPath, thumbPath } = request;
+    const { id, mediumUrl, faceData } = request;
 
-    const image = await loadImage(mediumPath);
+    const image = await loadImage(mediumUrl);
     const width = image.width;
     const height = image.height;
 
@@ -19,14 +19,9 @@ const workerAPI = {
     const imageData = ctx.getImageData(0, 0, width, height);
     const pixels = imageData.data;
 
-    // Compute Laplacian variance (blur detection) on a downsampled grayscale version
     const laplacianVar = computeLaplacianVariance(pixels, width, height);
-
-    // Compute brightness mean in HSV space
     const brightnessMean = computeBrightnessMean(pixels, width, height);
 
-    // Face detection results from main process (pre-computed)
-    const faceData = request.faceData;
     const faceDetected = faceData?.faceDetected ?? false;
     const ear = faceData?.ear;
     const mar = faceData?.mar;
@@ -36,7 +31,6 @@ const workerAPI = {
     const marginRatio = faceData?.marginRatio;
     const smileScore = faceData?.smileScore;
 
-    // Rejection logic
     const rejectionReasons: string[] = [];
     let isEyesClosed = false;
     let isMouthOpen = false;
@@ -44,22 +38,13 @@ const workerAPI = {
     let isFaceClipped = false;
     let isFaceTooSmall = false;
 
-    // Blur check: images with very low Laplacian variance are blurry
     const isBlurry = laplacianVar < 30;
-
-    // Exposure check: very dark or very bright
     const isUnderexposed = brightnessMean < 40;
     const isOverexposed = brightnessMean > 240;
 
-    if (isBlurry) {
-      rejectionReasons.push('手抖了');
-    }
-    if (isUnderexposed) {
-      rejectionReasons.push('太暗了');
-    }
-    if (isOverexposed) {
-      rejectionReasons.push('过曝了');
-    }
+    if (isBlurry) rejectionReasons.push('手抖了');
+    if (isUnderexposed) rejectionReasons.push('太暗了');
+    if (isOverexposed) rejectionReasons.push('过曝了');
 
     if (faceDetected) {
       if (ear !== undefined && ear < 0.2) {
@@ -74,8 +59,7 @@ const workerAPI = {
         isTilted = true;
         rejectionReasons.push('歪了');
       }
-      const bbox = faceBbox as { x: number; y: number; w: number; h: number } | undefined;
-      if (bbox && (bbox.x < 0 || bbox.y < 0 || bbox.x + bbox.w > 1 || bbox.y + bbox.h > 1)) {
+      if (faceBbox && (faceBbox.x < 0 || faceBbox.y < 0 || faceBbox.x + faceBbox.w > 1 || faceBbox.y + faceBbox.h > 1)) {
         isFaceClipped = true;
         rejectionReasons.push('脸被切了');
       }
@@ -88,7 +72,7 @@ const workerAPI = {
     const isRejected = rejectionReasons.length > 0;
 
     return {
-      filePath,
+      id,
       faceDetected,
       ear,
       mar,
@@ -113,20 +97,13 @@ const workerAPI = {
 function loadImage(src: string): Promise<ImageBitmap> {
   return fetch(src)
     .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Failed to load image: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Failed to load image from ${src}: ${response.status}`);
       return response.blob();
     })
     .then((blob) => createImageBitmap(blob));
 }
 
-function computeLaplacianVariance(
-  pixels: Uint8ClampedArray,
-  width: number,
-  height: number
-): number {
-  // Downsample to at most 512px on the long edge for performance
+function computeLaplacianVariance(pixels: Uint8ClampedArray, width: number, height: number): number {
   const maxDim = 512;
   let scale = 1;
   if (width > maxDim || height > maxDim) {
@@ -135,21 +112,16 @@ function computeLaplacianVariance(
   const sw = Math.floor(width * scale);
   const sh = Math.floor(height * scale);
 
-  // Convert to grayscale using luminance weights
   const gray: number[] = new Array(sw * sh);
   for (let y = 0; y < sh; y++) {
     for (let x = 0; x < sw; x++) {
       const srcX = Math.floor(x / scale);
       const srcY = Math.floor(y / scale);
       const idx = (srcY * width + srcX) * 4;
-      const r = pixels[idx];
-      const g = pixels[idx + 1];
-      const b = pixels[idx + 2];
-      gray[y * sw + x] = 0.299 * r + 0.587 * g + 0.114 * b;
+      gray[y * sw + x] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
     }
   }
 
-  // Apply Laplacian kernel: [[0, 1, 0], [1, -4, 1], [0, 1, 0]]
   let sum = 0;
   let sumSq = 0;
   let count = 0;
@@ -162,7 +134,6 @@ function computeLaplacianVariance(
         gray[y * sw + (x - 1)] +
         gray[y * sw + (x + 1)] -
         4 * gray[y * sw + x];
-
       sum += lap;
       sumSq += lap * lap;
       count++;
@@ -170,30 +141,17 @@ function computeLaplacianVariance(
   }
 
   if (count === 0) return 0;
-
   const mean = sum / count;
-  const variance = sumSq / count - mean * mean;
-
-  return Math.max(0, variance);
+  return Math.max(0, sumSq / count - mean * mean);
 }
 
-function computeBrightnessMean(
-  pixels: Uint8ClampedArray,
-  width: number,
-  height: number
-): number {
+function computeBrightnessMean(pixels: Uint8ClampedArray, width: number, height: number): number {
   const totalPixels = width * height;
   let totalValue = 0;
-
-  // Use the V channel of HSV approximation: max(R, G, B)
   for (let i = 0; i < totalPixels; i++) {
     const idx = i * 4;
-    const r = pixels[idx];
-    const g = pixels[idx + 1];
-    const b = pixels[idx + 2];
-    totalValue += Math.max(r, g, b);
+    totalValue += Math.max(pixels[idx], pixels[idx + 1], pixels[idx + 2]);
   }
-
   return totalValue / totalPixels;
 }
 

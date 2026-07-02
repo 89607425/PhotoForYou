@@ -10,15 +10,18 @@ export interface FaceResult {
 }
 
 export interface PhotoEntry {
-  filePath: string;
-  thumbPath: string;
+  id: string;
   name: string;
+  thumbnailUrl: string;
+  mediumUrl: string;
+  fullUrl: string;
+  size: number;
   hash?: string;
   faceData?: FaceResult;
 }
 
 export interface AnalysisResult {
-  filePath: string;
+  id: string;
   faceDetected: boolean;
   ear?: number;
   mar?: number;
@@ -55,10 +58,8 @@ export interface ScoredPhoto extends PhotoEntry, AnalysisResult, BatchScores {
 export type ReviewAction = 'select' | 'reject' | 'maybe';
 
 export interface WorkerAnalysisRequest {
-  filePath: string;
-  mediumPath: string;
-  thumbPath: string;
-  index: number;
+  id: string;
+  mediumUrl: string;
   faceData?: FaceResult;
 }
 

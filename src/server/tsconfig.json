@@ -4,8 +4,8 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "lib": ["ES2022"],
-    "outDir": "../../dist/main",
-    "rootDir": "../main",
+    "outDir": "../../dist/server",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -14,5 +14,5 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["**/*.ts"]
+  "include": ["./**/*.ts"]
 }

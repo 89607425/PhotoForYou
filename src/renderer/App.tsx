@@ -6,6 +6,7 @@ import { DropZone } from './components/DropZone';
 import { ProgressBar } from './components/ProgressBar';
 import { PhotoViewer } from './components/PhotoViewer';
 import { ExportPanel } from './components/ExportPanel';
+import { api } from './api';
 
 type AppPhase = 'idle' | 'importing' | 'analyzing' | 'reviewing' | 'export';
 
@@ -16,7 +17,8 @@ const App: React.FC = () => {
 
   const {
     photos,
-    importFolder,
+    sessionId,
+    importFromFiles,
     isImporting,
     progress: importProgress,
   } = usePhotoList();
@@ -29,18 +31,16 @@ const App: React.FC = () => {
     progressText,
   } = useAnalysis();
 
-  // Start import flow
-  const handleImport = useCallback(async () => {
+  const handleImportFiles = useCallback(async (files: File[]) => {
     setPhase('importing');
     try {
-      await importFolder();
+      await importFromFiles(files);
     } catch (err) {
       console.error('Import error:', err);
       setPhase('idle');
     }
-  }, [importFolder]);
+  }, [importFromFiles]);
 
-  // Transition: importing finished with photos -> start analyzing
   useEffect(() => {
     if (phase === 'importing' && !isImporting && photos.length > 0) {
       setPhase('analyzing');
@@ -50,24 +50,21 @@ const App: React.FC = () => {
     }
   }, [phase, isImporting, photos.length]);
 
-  // Transition: entered analyzing phase -> run analysis
   useEffect(() => {
-    if (phase === 'analyzing' && photos.length > 0 && !isAnalyzing && scoredPhotos.length === 0) {
-      analyze(photos).then(() => {
+    if (phase === 'analyzing' && photos.length > 0 && !isAnalyzing && scoredPhotos.length === 0 && sessionId) {
+      analyze(photos, sessionId).then(() => {
         setPhase('reviewing');
         setReviewIndex(0);
       });
     }
-  }, [phase, photos, isAnalyzing, scoredPhotos.length, analyze]);
+  }, [phase, photos, isAnalyzing, scoredPhotos.length, analyze, sessionId]);
 
-  // Sync scoredPhotos from analysis hook to local mutable state
   useEffect(() => {
     if (scoredPhotos.length > 0 && scoredPhotosLocal.length === 0) {
       setScoredPhotosLocal(scoredPhotos);
     }
   }, [scoredPhotos, scoredPhotosLocal.length]);
 
-  // Handle swipe actions during review
   const handleSwipe = useCallback(
     (action: ReviewAction) => {
       setScoredPhotosLocal((prev) => {
@@ -88,7 +85,6 @@ const App: React.FC = () => {
         return updated;
       });
 
-      // Advance to next photo or finish
       if (reviewIndex < scoredPhotosLocal.length - 1) {
         setTimeout(() => {
           setReviewIndex((i) => i + 1);
@@ -114,27 +110,17 @@ const App: React.FC = () => {
     }
   }, [reviewIndex, scoredPhotosLocal.length]);
 
-  // Export flow
   const handleExport = useCallback(async () => {
     const selected = scoredPhotosLocal.filter((p) => p.status === 'selected');
-
-    if (selected.length > 0) {
-      const folderPath = await window.electronAPI.openFolder();
-      if (!folderPath) return;
-
-      await window.electronAPI.exportPhotos(
-        selected.map((p) => ({ src: p.filePath, name: p.name })),
-        folderPath,
-        'selected'
-      );
+    if (selected.length > 0 && sessionId) {
+      await api.exportPhotos(sessionId, selected.map((p) => p.id));
     }
-  }, [scoredPhotosLocal]);
+  }, [scoredPhotosLocal, sessionId]);
 
   const handleBackToReview = useCallback(() => {
     setPhase('reviewing');
   }, []);
 
-  // Compute counts for export panel
   const selectedCount = useMemo(
     () => scoredPhotosLocal.filter((p) => p.status === 'selected').length,
     [scoredPhotosLocal]
@@ -164,7 +150,7 @@ const App: React.FC = () => {
             hasPhotos={false}
             isImporting={false}
             progress={0}
-            onImport={handleImport}
+            onImportFiles={handleImportFiles}
             photoCount={0}
           />
         )}
@@ -174,7 +160,7 @@ const App: React.FC = () => {
             hasPhotos={false}
             isImporting
             progress={importProgress}
-            onImport={() => {}}
+            onImportFiles={() => {}}
             photoCount={0}
           />
         )}
